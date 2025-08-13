@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAT 2025 Study Timer</title>
+        <link rel="icon" href="/favicon.ico" sizes="any">
+        <link rel="icon" type="image/png" href="/favicon.png">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CAT 2025 Study Timer</h1>
+        </header>
+
+        <div class="main-layout">
+            <div class="left-content">
+                <div class="week-selector">
+                    <button id="prev-week" class="nav-button"><i class="fas fa-chevron-left"></i></button>
+                    <h2 id="current-week">Week 1: Foundations - Focus on Basics</h2>
+                    <button id="next-week" class="nav-button"><i class="fas fa-chevron-right"></i></button>
+                </div>
+
+                <div class="day-selector">
+                    <button class="day-btn active" data-day="monday">Mon</button>
+                    <button class="day-btn" data-day="tuesday">Tue</button>
+                    <button class="day-btn" data-day="wednesday">Wed</button>
+                    <button class="day-btn" data-day="thursday">Thu</button>
+                    <button class="day-btn" data-day="friday">Fri</button>
+                    <button class="day-btn" data-day="saturday">Sat</button>
+                    <button class="day-btn" data-day="sunday">Sun</button>
+                </div>
+
+                <div class="session-container">
+                    <div class="session-selector">
+                        <button class="session-btn active" data-session="morning">Morning Session (2hrs)</button>
+                        <button class="session-btn" data-session="night">Night Session (2hrs)</button>
+                    </div>
+
+                    <div class="task-details">
+                        <h3 id="task-title">Verbal Ability and Reading Comprehension</h3>
+                        <p id="task-description">Introduction to Reading Comprehension (Chapter: Reading Comprehension Strategies); practice 2-3 basic passages.</p>
+                    </div>
+
+                    <div class="timer-card">
+                        <div class="timer-tabs">
+                            <button class="timer-tab active">All</button>
+                            <button class="timer-tab">Short Break</button>
+                            
+                        </div>
+                        
+                        <div class="timer-circle-container">
+                            <div class="timer-circle">
+                                <div class="timer-display">
+                                    <span id="timer-value">22:45</span>
+                                    <div id="timer-unit-label" class="timer-unit-label">minutes</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="task-label">
+                            <span id="current-task-label">#3 - Practice Motion Design (After Effects)</span>
+                        </div>
+
+                        <div class="timer-controls">
+                            <button id="reset-timer" class="control-btn"><i class="fas fa-redo"></i></button>
+                            <button id="pause-timer" class="control-btn main-control"><i class="fas fa-pause"></i></button>
+                            <button id="add-time" class="control-btn"><i class="fas fa-plus"></i></button>
+                        </div>
+                        
+                        <div class="pre-complete-text" style="text-align:center; margin-top:8px; color:#666;">
+                            Save or mark this session once you are done
+                        </div>
+                        <div class="complete-section">
+                            <button id="mark-complete" class="complete-btn">
+                                <i class="fas fa-check"></i> Mark as Complete
+                            </button>
+                            <button id="save-progress" class="complete-btn" style="background: linear-gradient(135deg, #2196F3 0%, #1E88E5 100%); box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);">
+                                <i class="fas fa-save"></i> Save Progress
+                            </button>
+                            <button id="reset-all" class="complete-btn" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">
+                                <i class="fas fa-trash-restore"></i> Reset All
+                            </button>
+                        </div>
+                    </div>
+
+                    
+                </div>
+            </div>
+
+            <div class="right-panels">
+                <div class="panel-card overall-card">
+                    <h3>Overall Progress</h3>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress" style="width: 0%;"></div>
+                        </div>
+                        <span class="progress-text">0% Complete</span>
+                    </div>
+                </div>
+
+                <div class="panel-card stats-card">
+                    <h3>Study Statistics</h3>
+                    <div class="stat-list">
+                        <div class="stat-row"><span class="label">Total Study Time</span><span class="value" id="total-time">0h 0m</span></div>
+                        <div class="divider"></div>
+                        <div class="stat-row"><span class="label">Tasks Completed</span><span class="value" id="completed-tasks">0/112</span></div>
+                        <div class="divider"></div>
+                        <div class="stat-row"><span class="label">Days Completed</span><span class="value" id="completed-days">0/56</span></div>
+                    </div>
+                </div>
+
+                <div class="panel-card">
+                    <h3>Study Time Distribution</h3>
+                    <div class="chart-container"><canvas id="studyTimeChart"></canvas></div>
+                </div>
+
+                <div class="panel-card">
+                    <h3>Daily Progress</h3>
+                    <div class="chart-container"><canvas id="dailyProgressChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
