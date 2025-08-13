@@ -361,36 +361,48 @@ let userProgress = {
     timeByDay: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 }
 };
 
-// Function to fetch user progress from the server
+// Function to fetch user progress with local-first strategy
 async function loadUserProgress() {
-    try {
-        const response = await fetch('/api/progress');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const progressData = await response.json();
-        // Ensure progressData is a valid object before assigning
-        if (progressData && typeof progressData === 'object' && Array.isArray(progressData.completedTasks)) {
-            userProgress = progressData;
-        } else {
-            // If data is invalid, initialize with a default structure
-            userProgress = { completedTasks: [], totalStudyTime: 0, lastState: null, timeBySession: { morning: 0, night: 0, shortBreak: 0 }, timeByDay: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 } };
-        }
+    const emptyProgress = { completedTasks: [], totalStudyTime: 0, lastState: null, timeBySession: { morning: 0, night: 0, shortBreak: 0 }, timeByDay: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 } };
 
-        totalStudyTimeSeconds = userProgress.totalStudyTime || 0;
-        updateProgressDisplay();
-    } catch (error) {
-        console.error("Could not load user progress:", error);
-        // Fallback to localStorage or default
-        const savedProgress = localStorage.getItem('catTimerProgress');
-        if (savedProgress) {
-            userProgress = JSON.parse(savedProgress);
-        } else {
-            userProgress = { completedTasks: [], totalStudyTime: 0, lastState: null, timeBySession: { morning: 0, night: 0, shortBreak: 0 }, timeByDay: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 } };
-        }
-        totalStudyTimeSeconds = userProgress.totalStudyTime || 0;
-        updateProgressDisplay(); // Also update display on fallback
+    function isValidProgress(p) {
+        return p && typeof p === 'object' && Array.isArray(p.completedTasks) && typeof p.totalStudyTime === 'number';
     }
+    function pickFresher(a, b) {
+        // Prefer more completed tasks, then higher total time
+        const ac = (a?.completedTasks?.length) || 0;
+        const bc = (b?.completedTasks?.length) || 0;
+        if (ac !== bc) return ac > bc ? a : b;
+        const at = a?.totalStudyTime || 0;
+        const bt = b?.totalStudyTime || 0;
+        return at >= bt ? a : b;
+    }
+
+    let local = null;
+    try { local = JSON.parse(localStorage.getItem('catTimerProgress') || 'null'); } catch {}
+    if (!isValidProgress(local)) local = emptyProgress;
+
+    let server = null;
+    try {
+        const response = await fetch('/api/progress', { cache: 'no-store' });
+        if (response.ok) {
+            server = await response.json();
+        }
+    } catch (e) {
+        // ignore; we'll use local
+    }
+    if (!isValidProgress(server)) server = emptyProgress;
+
+    // Choose fresher between local and server
+    const chosen = pickFresher(local, server);
+    userProgress = isValidProgress(chosen) ? chosen : emptyProgress;
+    totalStudyTimeSeconds = userProgress.totalStudyTime || 0;
+
+    // If we chose local and it's fresher than server, attempt to sync to server (best effort)
+    if (chosen === local) {
+        try { await saveUserProgress(); } catch {}
+    }
+    updateProgressDisplay();
 }
 
 // Helpers to capture and restore current UI/timer state
@@ -546,21 +558,18 @@ function initializeCharts() {
 
 // Save user progress to the server
 async function saveUserProgress() {
+    // Always persist locally for reliability
+    try { localStorage.setItem('catTimerProgress', JSON.stringify(userProgress)); } catch {}
+    // Best-effort sync to server
     try {
         const response = await fetch('/api/progress', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userProgress),
         });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     } catch (error) {
-        console.error("Could not save user progress:", error);
-        // Fallback to localStorage
-        localStorage.setItem('catTimerProgress', JSON.stringify(userProgress));
+        console.error('Could not save user progress to server (kept locally):', error);
     }
 }
 
