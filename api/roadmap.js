@@ -244,26 +244,41 @@ export default async function handler(req, res) {
 
   try {
     if (method === 'GET') {
-      const meta = await head(ROADMAP_PATH).catch(() => null);
+      const meta = await head(ROADMAP_PATH).catch((e) => {
+        console.error('Blob head(roadmap) failed:', e);
+        return null;
+      });
       if (!meta) {
         // Seed blob with roadmap parsed from embedded official text
         let defaultRoadmap = parseDataTxt(OFFICIAL_ROADMAP_TEXT);
         if (!defaultRoadmap || Object.keys(defaultRoadmap).length === 0) defaultRoadmap = {};
 
-        await put(ROADMAP_PATH, JSON.stringify(defaultRoadmap), {
-          access: 'public',
-          contentType: 'application/json',
-          addRandomSuffix: false
-        });
-        return res.status(200).setHeader('cache-control', 'no-store').json(defaultRoadmap);
+        try {
+          await put(ROADMAP_PATH, JSON.stringify(defaultRoadmap), {
+            access: 'public',
+            contentType: 'application/json',
+            addRandomSuffix: false
+          });
+          return res.status(200).setHeader('cache-control', 'no-store').json(defaultRoadmap);
+        } catch (e) {
+          // Fall back to returning embedded data without persistence
+          console.error('Blob put(roadmap) failed (returning embedded data):', e);
+          return res.status(200).setHeader('cache-control', 'no-store').json(defaultRoadmap);
+        }
       }
 
-      const download = await fetch(meta.url, { cache: 'no-store' });
-      if (!download.ok) {
-        return res.status(500).json({ error: 'Failed to download roadmap blob' });
+      try {
+        const download = await fetch(meta.url, { cache: 'no-store' });
+        if (!download.ok) {
+          throw new Error('Failed to download roadmap blob');
+        }
+        const data = await download.json();
+        return res.status(200).setHeader('cache-control', 'no-store').json(data);
+      } catch (e) {
+        console.error('Download roadmap blob failed (returning embedded data):', e);
+        const fallback = parseDataTxt(OFFICIAL_ROADMAP_TEXT) || {};
+        return res.status(200).setHeader('cache-control', 'no-store').json(fallback);
       }
-      const data = await download.json();
-      return res.status(200).setHeader('cache-control', 'no-store').json(data);
     }
 
     if (method === 'POST' || method === 'PUT') {
@@ -278,7 +293,9 @@ export default async function handler(req, res) {
 
     return res.status(405).send('Method Not Allowed');
   } catch (error) {
-    return res.status(500).json({ error: 'Roadmap handler error', details: String(error) });
+    console.error('Roadmap handler error:', error);
+    const fallback = parseDataTxt(OFFICIAL_ROADMAP_TEXT) || {};
+    return res.status(200).setHeader('cache-control', 'no-store').json(fallback);
   }
 }
 

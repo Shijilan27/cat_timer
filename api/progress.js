@@ -30,23 +30,34 @@ export default async function handler(req, res) {
 
   try {
     if (method === 'GET') {
-      const meta = await head(PROGRESS_PATH).catch(() => null);
+      const meta = await head(PROGRESS_PATH).catch((e) => {
+        console.error('Blob head(progress) failed:', e);
+        return null;
+      });
       if (!meta) {
         const initial = defaultProgress();
-        await put(PROGRESS_PATH, JSON.stringify(initial), {
-          access: 'public',
-          contentType: 'application/json',
-          addRandomSuffix: false
-        });
-        return res.status(200).setHeader('cache-control', 'no-store').json(initial);
+        try {
+          await put(PROGRESS_PATH, JSON.stringify(initial), {
+            access: 'public',
+            contentType: 'application/json',
+            addRandomSuffix: false
+          });
+          return res.status(200).setHeader('cache-control', 'no-store').json(initial);
+        } catch (e) {
+          console.error('Blob put(progress) failed (returning default):', e);
+          return res.status(200).setHeader('cache-control', 'no-store').json(initial);
+        }
       }
 
-      const download = await fetch(meta.url, { cache: 'no-store' });
-      if (!download.ok) {
-        return res.status(500).json({ error: 'Failed to download progress blob' });
+      try {
+        const download = await fetch(meta.url, { cache: 'no-store' });
+        if (!download.ok) throw new Error('Failed to download progress blob');
+        const data = await download.json();
+        return res.status(200).setHeader('cache-control', 'no-store').json(data);
+      } catch (e) {
+        console.error('Download progress blob failed (returning default):', e);
+        return res.status(200).setHeader('cache-control', 'no-store').json(defaultProgress());
       }
-      const data = await download.json();
-      return res.status(200).setHeader('cache-control', 'no-store').json(data);
     }
 
     if (method === 'POST' || method === 'PUT') {
