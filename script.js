@@ -228,23 +228,9 @@ function parseRoadmapText(text) {
 
 // Function to fetch roadmap data from the server
 async function fetchRoadmapData() {
-    try {
-        const response = await fetch('/api/roadmap', { cache: 'no-store' });
-        if (response.ok) {
-            const data = await response.json();
-            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-                roadmapData = data;
-                return roadmapData;
-            }
-        }
-        // Fall back to embedded if server empty or not ok
-        roadmapData = parseRoadmapText(OFFICIAL_ROADMAP_TEXT);
-        return roadmapData;
-    } catch (error) {
-        console.error("Could not fetch roadmap data:", error);
-        roadmapData = parseRoadmapText(OFFICIAL_ROADMAP_TEXT);
-        return roadmapData;
-    }
+    // Make the app independent of any backend: always use embedded roadmap
+    roadmapData = parseRoadmapText(OFFICIAL_ROADMAP_TEXT);
+    return roadmapData;
 }
 
 
@@ -861,7 +847,14 @@ dayBtns.forEach(btn => {
         dayBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentDay = btn.dataset.day;
+        // Reset timer and UI when switching days
+        timerType = 'all';
+        timerSeconds = timerDurations[timerType];
+        originalTimerSeconds = timerSeconds;
+        isOvertime = false;
+        overtimeSeconds = 0;
         updateTaskDetails();
+        updateTimerDisplay();
     });
 });
 
@@ -870,7 +863,14 @@ sessionBtns.forEach(btn => {
         sessionBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentSession = btn.dataset.session;
+        // Reset timer and UI when switching sessions
+        timerType = 'all';
+        timerSeconds = timerDurations[timerType];
+        originalTimerSeconds = timerSeconds;
+        isOvertime = false;
+        overtimeSeconds = 0;
         updateTaskDetails();
+        updateTimerDisplay();
     });
 });
 
@@ -950,12 +950,21 @@ async function initializeApplication() {
     const nowInit = new Date();
     scheduleHasStarted = nowInit >= scheduleStartDate;
 
-    // If there is a saved last state, restore it. Otherwise, choose defaults.
-    if (userProgress.lastState) {
+    // Choose defaults based on today, and only restore last state if it matches today's session selection
+    currentWeek = Object.keys(roadmapData)[0] || 'Week 1';
+    initializeCurrentDate();
+    const restored = userProgress.lastState &&
+        userProgress.lastState.currentWeek === currentWeek &&
+        userProgress.lastState.currentDay === currentDay;
+    if (restored) {
         applySavedState(userProgress.lastState);
     } else {
-        currentWeek = Object.keys(roadmapData)[0] || 'Week 1';
-        initializeCurrentDate();
+        // Reset timer to full duration for a clean start
+        timerType = 'all';
+        timerSeconds = timerDurations[timerType];
+        originalTimerSeconds = timerSeconds;
+        isOvertime = false;
+        overtimeSeconds = 0;
         updateWeekDisplay();
         updateTimerDisplay();
     }
