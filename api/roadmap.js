@@ -1,4 +1,4 @@
-export const config = { runtime: 'edge' };
+export const config = { runtime: 'nodejs' };
 
 import { head, put } from '@vercel/blob';
 
@@ -228,8 +228,19 @@ function parseDataTxt(text) {
   return weeks;
 }
 
-export default async function handler(request) {
-  const { method } = request;
+async function readJsonBody(req) {
+  try {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const raw = Buffer.concat(chunks).toString('utf8');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function handler(req, res) {
+  const { method } = req;
 
   try {
     if (method === 'GET') {
@@ -244,45 +255,30 @@ export default async function handler(request) {
           contentType: 'application/json',
           addRandomSuffix: false
         });
-        return new Response(JSON.stringify(defaultRoadmap), {
-          status: 200,
-          headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
-        });
+        return res.status(200).setHeader('cache-control', 'no-store').json(defaultRoadmap);
       }
 
-      const res = await fetch(meta.url, { cache: 'no-store' });
-      if (!res.ok) {
-        return new Response(JSON.stringify({ error: 'Failed to download roadmap blob' }), {
-          status: 500,
-          headers: { 'content-type': 'application/json' }
-        });
+      const download = await fetch(meta.url, { cache: 'no-store' });
+      if (!download.ok) {
+        return res.status(500).json({ error: 'Failed to download roadmap blob' });
       }
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        status: 200,
-        headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
-      });
+      const data = await download.json();
+      return res.status(200).setHeader('cache-control', 'no-store').json(data);
     }
 
     if (method === 'POST' || method === 'PUT') {
-      const payload = await request.json();
+      const payload = await readJsonBody(req);
       await put(ROADMAP_PATH, JSON.stringify(payload), {
         access: 'public',
         contentType: 'application/json',
         addRandomSuffix: false
       });
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' }
-      });
+      return res.status(200).json({ ok: true });
     }
 
-    return new Response('Method Not Allowed', { status: 405 });
+    return res.status(405).send('Method Not Allowed');
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Roadmap handler error', details: String(error) }), {
-      status: 500,
-      headers: { 'content-type': 'application/json' }
-    });
+    return res.status(500).json({ error: 'Roadmap handler error', details: String(error) });
   }
 }
 

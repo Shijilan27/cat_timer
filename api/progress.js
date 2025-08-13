@@ -1,4 +1,4 @@
-export const config = { runtime: 'edge' };
+export const config = { runtime: 'nodejs' };
 
 import { head, put } from '@vercel/blob';
 
@@ -14,8 +14,19 @@ function defaultProgress() {
   };
 }
 
-export default async function handler(request) {
-  const { method } = request;
+async function readJsonBody(req) {
+  try {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const raw = Buffer.concat(chunks).toString('utf8');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function handler(req, res) {
+  const { method } = req;
 
   try {
     if (method === 'GET') {
@@ -27,33 +38,21 @@ export default async function handler(request) {
           contentType: 'application/json',
           addRandomSuffix: false
         });
-        return new Response(JSON.stringify(initial), {
-          status: 200,
-          headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
-        });
+        return res.status(200).setHeader('cache-control', 'no-store').json(initial);
       }
 
-      const res = await fetch(meta.url, { cache: 'no-store' });
-      if (!res.ok) {
-        return new Response(JSON.stringify({ error: 'Failed to download progress blob' }), {
-          status: 500,
-          headers: { 'content-type': 'application/json' }
-        });
+      const download = await fetch(meta.url, { cache: 'no-store' });
+      if (!download.ok) {
+        return res.status(500).json({ error: 'Failed to download progress blob' });
       }
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        status: 200,
-        headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
-      });
+      const data = await download.json();
+      return res.status(200).setHeader('cache-control', 'no-store').json(data);
     }
 
     if (method === 'POST' || method === 'PUT') {
-      const payload = await request.json().catch(() => null);
+      const payload = await readJsonBody(req);
       if (!payload || typeof payload !== 'object' || !Array.isArray(payload.completedTasks)) {
-        return new Response(JSON.stringify({ error: 'Invalid payload' }), {
-          status: 400,
-          headers: { 'content-type': 'application/json' }
-        });
+        return res.status(400).json({ error: 'Invalid payload' });
       }
       const normalizeNumber = (n) => (Number.isFinite(Number(n)) && Number(n) >= 0 ? Number(n) : 0);
       const normalizeTimeMap = (obj, keys) => {
@@ -73,18 +72,12 @@ export default async function handler(request) {
         contentType: 'application/json',
         addRandomSuffix: false
       });
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' }
-      });
+      return res.status(200).json({ ok: true });
     }
 
-    return new Response('Method Not Allowed', { status: 405 });
+    return res.status(405).send('Method Not Allowed');
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Progress handler error', details: String(error) }), {
-      status: 500,
-      headers: { 'content-type': 'application/json' }
-    });
+    return res.status(500).json({ error: 'Progress handler error', details: String(error) });
   }
 }
 
