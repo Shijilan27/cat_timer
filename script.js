@@ -174,52 +174,57 @@ o\t2 Full Mock Tests + analysis; focus on mindset.`;
 
 function parseRoadmapText(text) {
     if (typeof text !== 'string') return {};
-    const lines = String(text).split(/\r?\n/).map(l => (typeof l === 'string' ? l.trim() : '')).filter(Boolean);
-    const weeks = {};
-    const daysSet = new Set(['monday','tuesday','wednesday','thursday','friday','saturday','sunday']);
-    let currentWeek = null;
-    let currentDay = null;
+    const lines = String(text)
+        .split(/\r?\n/)
+        .map(l => (typeof l === 'string' ? l.trim() : ''))
+        .filter(Boolean);
 
-    function ensureDay(week, day) {
-        if (!week[day]) week[day] = { morning: { title: '', description: '' }, night: { title: '', description: '' } };
+    const weeks = {};
+    const dayRegex = /^(?:[•*\-]\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s*:/i;
+    const sessionRegex = /^o\s*(morning|night)?\s*(?:\([^)]*\))?\s*:\s*(.+)$/i;
+
+    let currentWeekKey = null;
+    let currentDayKey = null;
+
+    function ensureDay(weekObj, dayKey) {
+        if (!weekObj[dayKey]) weekObj[dayKey] = { morning: { title: '', description: '' }, night: { title: '', description: '' } };
     }
 
     for (const ln of lines) {
-        if (ln.toLowerCase().startsWith('week ')) {
-            currentWeek = ln;
-            weeks[currentWeek] = { title: ln.split(':', 1)[1]?.trim() || '' };
-            currentDay = null;
+        // Week header
+        if (/^week\s+/i.test(ln)) {
+            currentWeekKey = ln;
+            if (!weeks[currentWeekKey]) weeks[currentWeekKey] = { title: (ln.split(':', 1)[1] || '').trim() };
+            currentDayKey = null;
             continue;
         }
-        if ((ln.startsWith('•') || ln.startsWith('*') || ln.startsWith('-')) && ln.includes(':')) {
-            const dayName = ln.split(':',1)[0].replace(/[•*-]/g,'').trim().toLowerCase();
-            if (daysSet.has(dayName)) {
-                currentDay = dayName;
-                ensureDay(weeks[currentWeek], currentDay);
-            }
+
+        // Day line
+        const dayMatch = ln.match(dayRegex);
+        if (dayMatch) {
+            currentDayKey = dayMatch[1].toLowerCase();
+            ensureDay(weeks[currentWeekKey], currentDayKey);
             continue;
         }
-        if (ln.startsWith('o')) {
-            let content = ln.replace(/^o\s*/, '');
-            const lower = content.toLowerCase();
-            let session = null;
-            if (lower.startsWith('morning')) session = 'morning';
-            if (lower.startsWith('night')) session = session ? session : 'night';
-            const rest = content.includes(':') ? content.split(':',1)[1].trim() : content;
-            let title = rest, description = '';
-            if (rest.includes(' - ')) {
-                const parts = rest.split(' - ');
-                title = parts[0].trim();
-                description = parts.slice(1).join(' - ').trim();
+
+        // Session line
+        const sessMatch = ln.match(sessionRegex);
+        if (sessMatch && currentWeekKey && currentDayKey) {
+            const sess = (sessMatch[1] || '').toLowerCase();
+            const rest = sessMatch[2].trim();
+            let title = rest;
+            let description = '';
+            const idx = rest.indexOf(' - ');
+            if (idx >= 0) {
+                title = rest.slice(0, idx).trim();
+                description = rest.slice(idx + 3).trim();
             }
-            if (currentWeek && currentDay) {
-                ensureDay(weeks[currentWeek], currentDay);
-                if (!session) {
-                    weeks[currentWeek][currentDay].morning = { title, description };
-                    weeks[currentWeek][currentDay].night = { title, description };
-                } else {
-                    weeks[currentWeek][currentDay][session] = { title, description };
-                }
+            ensureDay(weeks[currentWeekKey], currentDayKey);
+            if (sess === 'morning' || sess === 'night') {
+                weeks[currentWeekKey][currentDayKey][sess] = { title, description };
+            } else {
+                weeks[currentWeekKey][currentDayKey].morning = { title, description };
+                weeks[currentWeekKey][currentDayKey].night = { title, description };
             }
         }
     }
