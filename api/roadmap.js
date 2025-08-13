@@ -241,9 +241,24 @@ async function readJsonBody(req) {
 
 export default async function handler(req, res) {
   const { method } = req;
+  const url = new URL(req.url, 'http://local');
 
   try {
     if (method === 'GET') {
+      // Optional: force refresh from embedded text and persist
+      if (url.searchParams.get('forceEmbedded') === '1') {
+        const embedded = parseDataTxt(OFFICIAL_ROADMAP_TEXT) || {};
+        try {
+          await put(ROADMAP_PATH, JSON.stringify(embedded), {
+            access: 'public',
+            contentType: 'application/json',
+            addRandomSuffix: false
+          });
+        } catch (e) {
+          console.error('Blob put(roadmap) during forceEmbedded failed:', e);
+        }
+        return res.status(200).setHeader('cache-control', 'no-store').json(embedded);
+      }
       const meta = await head(ROADMAP_PATH).catch((e) => {
         console.error('Blob head(roadmap) failed:', e);
         return null;
@@ -273,6 +288,11 @@ export default async function handler(req, res) {
           throw new Error('Failed to download roadmap blob');
         }
         const data = await download.json();
+        // If blob is empty or not an object, fallback to embedded
+        if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+          const embedded = parseDataTxt(OFFICIAL_ROADMAP_TEXT) || {};
+          return res.status(200).setHeader('cache-control', 'no-store').json(embedded);
+        }
         return res.status(200).setHeader('cache-control', 'no-store').json(data);
       } catch (e) {
         console.error('Download roadmap blob failed (returning embedded data):', e);
