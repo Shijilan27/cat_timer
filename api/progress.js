@@ -27,21 +27,24 @@ async function readJsonBody(req) {
 
 export default async function handler(req, res) {
   const { method } = req;
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_TOKEN || '';
+  const commonPutOpts = {
+    access: 'public',
+    contentType: 'application/json',
+    addRandomSuffix: false,
+    ...(blobToken ? { token: blobToken } : {})
+  };
 
   try {
     if (method === 'GET') {
-      const meta = await head(PROGRESS_PATH).catch((e) => {
+      const meta = await head(PROGRESS_PATH, blobToken ? { token: blobToken } : undefined).catch((e) => {
         console.error('Blob head(progress) failed:', e);
         return null;
       });
       if (!meta) {
         const initial = defaultProgress();
         try {
-          await put(PROGRESS_PATH, JSON.stringify(initial), {
-            access: 'public',
-            contentType: 'application/json',
-            addRandomSuffix: false
-          });
+          await put(PROGRESS_PATH, JSON.stringify(initial), commonPutOpts);
           return res.status(200).setHeader('cache-control', 'no-store').json(initial);
         } catch (e) {
           console.error('Blob put(progress) failed (returning default):', e);
@@ -78,11 +81,7 @@ export default async function handler(req, res) {
         timeByDay: normalizeTimeMap(payload.timeByDay, ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']),
         lastState: payload.lastState ?? null
       };
-      await put(PROGRESS_PATH, JSON.stringify(sanitized), {
-        access: 'public',
-        contentType: 'application/json',
-        addRandomSuffix: false
-      });
+      await put(PROGRESS_PATH, JSON.stringify(sanitized), commonPutOpts);
       return res.status(200).json({ ok: true });
     }
 
