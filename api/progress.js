@@ -5,7 +5,13 @@ import { head, put } from '@vercel/blob';
 const PROGRESS_PATH = 'small-data/user-progress.json';
 
 function defaultProgress() {
-  return { completedTasks: [], totalStudyTime: 0 };
+  return {
+    completedTasks: [],
+    totalStudyTime: 0,
+    lastState: null,
+    timeBySession: { morning: 0, night: 0, shortBreak: 0 },
+    timeByDay: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 }
+  };
 }
 
 export default async function handler(request) {
