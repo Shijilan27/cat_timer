@@ -284,12 +284,22 @@ const timerDurations = {
 };
 
 // Schedule control: only allow editing today's sessions from the official start
+// Overrides
+const EDIT_ALL_DAYS = true; // Set true to allow editing any day/week
+const SCHEDULE_START_DATE = new Date('2025-08-12T00:00:00.000+05:30'); // Treat schedule as started on Aug 12, 2025
 let scheduleStartDate = null; // Date object at 00:00 local
 let scheduleHasStarted = false;
 let todayWeekIndex = 0;
 let todayDayKey = 'monday';
 
 function computeNextMondayStartDate() {
+    // If an explicit schedule start is configured, use it
+    if (SCHEDULE_START_DATE instanceof Date && !isNaN(SCHEDULE_START_DATE)) {
+        const d = new Date(SCHEDULE_START_DATE.getTime());
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+    // Fallback to next Monday
     const now = new Date();
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const day = d.getDay(); // 0=Sun, 1=Mon
@@ -305,6 +315,7 @@ function getWeekIndexByName(weekName) {
 }
 
 function isEditionAllowedForSelection() {
+    if (EDIT_ALL_DAYS) return true;
     if (!scheduleHasStarted) return false;
     return getWeekIndexByName(currentWeek) === todayWeekIndex && currentDay === todayDayKey;
 }
@@ -953,7 +964,7 @@ async function initializeApplication() {
     // Compute official start (coming Monday) and whether schedule has started
     scheduleStartDate = computeNextMondayStartDate();
     const nowInit = new Date();
-    scheduleHasStarted = nowInit >= scheduleStartDate;
+    scheduleHasStarted = true; // Treat schedule as started
 
     // Choose defaults based on today, and only restore last state if it matches today's session selection
     currentWeek = Object.keys(roadmapData)[0] || 'Week 1';
@@ -1026,7 +1037,7 @@ window.testMarkMondayComplete = testMarkMondayComplete;
 window.debugCurrentState = debugCurrentState;
 window.updateDayButtonStatus = updateDayButtonStatus;
 function initializeCurrentDate() {
-    const startDate = new Date('2025-08-04T00:00:00.000+05:30'); // August 4, 2025, 00:00:00 IST
+    const startDate = new Date(SCHEDULE_START_DATE); // Use configured schedule start
     const now = new Date();
 
     // Set time to 00:00:00 for accurate day calculation
