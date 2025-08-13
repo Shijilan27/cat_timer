@@ -176,7 +176,11 @@ o\t2 Full Mock Tests + analysis; focus on mindset.`}
 `;
 
 function parseDataTxt(text) {
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (typeof text !== 'string') return {};
+  const lines = String(text)
+    .split(/\r?\n/)
+    .map(l => (typeof l === 'string' ? l.trim() : ''))
+    .filter(Boolean);
   const weeks = {};
   const daysSet = new Set(['monday','tuesday','wednesday','thursday','friday','saturday','sunday']);
   let currentWeek = null;
